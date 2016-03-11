@@ -18,6 +18,11 @@ FCL_REAL continuousCollide(const CollisionObject* o1, const Transform3f& tf1_end
                            const CollisionObject* o2, const Transform3f& tf2_end,
                            const ContinuousCollisionRequest& request,
                            ContinuousCollisionResult& result);
+                           
+FCL_REAL continuousCollide(const std::vector<CollisionObject *> &o1_start, const std::vector<Transform3f> &tf1_end,
+                           const CollisionObject* o2, const Transform3f& tf2_end,
+                           const ContinuousCollisionRequest &request,
+                           ContinuousCollisionSetResult &result);
 
 FCL_REAL collide(const ContinuousCollisionObject* o1, const ContinuousCollisionObject* o2,
                  const ContinuousCollisionRequest& request,

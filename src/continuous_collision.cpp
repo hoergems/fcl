@@ -8,6 +8,9 @@
 #include "fcl/ccd/conservative_advancement.h"
 #include <iostream>
 
+using std::cout;
+using std::endl;
+
 namespace fcl
 {
 
@@ -37,6 +40,43 @@ MotionBasePtr getMotionBase(const Transform3f& tf_beg, const Transform3f& tf_end
   default:
     return MotionBasePtr();
   }
+}
+
+FCL_REAL continuousCollideNaive(std::vector<const CollisionGeometry *> &o1, std::vector<MotionBase *> &motion1,
+                                const CollisionGeometry* o2, const MotionBase* motion2,
+                                const ContinuousCollisionRequest& request,
+                                ContinuousCollisionSetResult& result)
+{
+  std::size_t n_iter = std::min(request.num_max_iterations, (std::size_t)ceil(1 / request.toc_err));
+  std::vector<Transform3f> cur_tf1;  
+  for (size_t i = 0; i < o1.size(); i++) {
+    Transform3f tf;
+    cur_tf1.push_back(tf);    
+  } 
+  Transform3f cur_tf2;  
+  for(std::size_t i = 0; i < n_iter; ++i)
+  {
+    FCL_REAL t = i / (FCL_REAL) (n_iter - 1);
+    motion2->integrate(t);
+    motion2->getCurrentTransform(cur_tf2);
+    for (size_t k = 0; k < motion1.size(); k++) {
+      motion1[k]->integrate(t);      
+      
+      motion1[k]->getCurrentTransform(cur_tf1[k]);
+      
+      CollisionRequest c_request;
+      CollisionResult c_result;
+      if (collide(o1[k], cur_tf1[k], o2, cur_tf2, c_request, c_result)) {
+        result.is_collide = true;
+        result.colliding_body_index = k;
+        result.time_of_contact = t;        
+        result.contact_tf1 = cur_tf1[k];
+        result.contact_tf2 = cur_tf2;        
+        return t;
+      }
+    }
+  }
+  return 0;
 }
 
 
@@ -254,6 +294,22 @@ FCL_REAL continuousCollideConservativeAdvancement(const CollisionGeometry* o1, c
   }
 }
 
+FCL_REAL continuousCollide(std::vector<const CollisionGeometry *> &o1, std::vector<MotionBase *> &motion1,
+                           const CollisionGeometry* o2, const MotionBase* motion2,
+                           const ContinuousCollisionRequest& request,
+                           ContinuousCollisionSetResult& result) 
+{
+  switch(request.ccd_solver_type)
+  {
+  case CCDC_NAIVE:
+    return continuousCollideNaive(o1, motion1, o2, motion2, request, result);
+  default:
+    std::cerr << "Warning! Invalid continuous collision setting" << std::endl;
+  } 
+  
+  return -1;                   
+}
+
   
 FCL_REAL continuousCollide(const CollisionGeometry* o1, const MotionBase* motion1,
                            const CollisionGeometry* o2, const MotionBase* motion2,
@@ -310,6 +366,22 @@ FCL_REAL continuousCollide(const CollisionGeometry* o1, const Transform3f& tf1_b
   return continuousCollide(o1, motion1.get(), o2, motion2.get(), request, result);
 }
 
+FCL_REAL continuousCollide(std::vector<const CollisionGeometry*> &o1, 
+                           const std::vector<Transform3f> &tf1_beg, 
+                           const std::vector<Transform3f> &tf1_end,
+                           const CollisionGeometry* o2, const Transform3f& tf2_beg, const Transform3f& tf2_end,
+                           const ContinuousCollisionRequest &request,
+                           ContinuousCollisionSetResult &result) 
+{   
+    std::vector<MotionBase *> motion_vec;
+    for (size_t i = 0; i < o1.size(); i++) {
+        motion_vec.push_back(new InterpMotion(tf1_beg[i], tf1_end[i]));
+    }
+    
+    MotionBasePtr motion2 = getMotionBase(tf2_beg, tf2_end, request.ccd_motion_type);
+    return continuousCollide(o1, motion_vec, o2, motion2.get(), request, result);
+}
+
 
 FCL_REAL continuousCollide(const CollisionObject* o1, const Transform3f& tf1_end,
                            const CollisionObject* o2, const Transform3f& tf2_end,
@@ -319,6 +391,26 @@ FCL_REAL continuousCollide(const CollisionObject* o1, const Transform3f& tf1_end
   return continuousCollide(o1->collisionGeometry().get(), o1->getTransform(), tf1_end,
                            o2->collisionGeometry().get(), o2->getTransform(), tf2_end,
                            request, result);
+}
+
+FCL_REAL continuousCollide(const std::vector<CollisionObject *> &o1_start, const std::vector<Transform3f> &tf1_end,
+                           const CollisionObject* o2, const Transform3f& tf2_end,
+                           const ContinuousCollisionRequest &request,
+                           ContinuousCollisionSetResult &result) 
+{
+  std::vector<const CollisionGeometry*> o1_geom;  
+  std::vector<Transform3f> tf1_beg;  
+  for (size_t i = 0; i < o1_start.size(); i++) {
+      o1_geom.push_back(o1_start[i]->collisionGeometry().get());
+      tf1_beg.push_back(o1_start[i]->getTransform());      
+  }
+  
+  return continuousCollide(o1_geom, tf1_beg, tf1_end, 
+                           o2->collisionGeometry().get(), o2->getTransform(), tf2_end,
+                           request, result);
+  
+  /**cout << "HELLO" << endl;
+  return 0;*/
 }
 
 

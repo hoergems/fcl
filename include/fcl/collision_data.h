@@ -505,6 +505,23 @@ struct ContinuousCollisionResult
   }
 };
 
+struct ContinuousCollisionSetResult
+{
+  /// @brief collision or not
+  bool is_collide;
+  
+  /// @brief time of contact in [0, 1]
+  FCL_REAL time_of_contact;
+  
+  unsigned int colliding_body_index;  
+  
+  Transform3f contact_tf1, contact_tf2;
+  
+  ContinuousCollisionSetResult() : is_collide(false), time_of_contact(1.0), colliding_body_index(0)
+  {
+  }
+};
+
 
 enum PenetrationDepthType {PDT_TRANSLATIONAL, PDT_GENERAL_EULER, PDT_GENERAL_QUAT, PDT_GENERAL_EULER_BALL, PDT_GENERAL_QUAT_BALL};
 
